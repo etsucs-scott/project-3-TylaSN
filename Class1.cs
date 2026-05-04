@@ -1,185 +1,177 @@
 ﻿using System;
-using System.Security.Cryptography.X509Certificates;
 
 namespace Minesweeper.Core
 {
-
     public class Board
     {
-        // 2D array representing the grid of tiles
         private Tile[,] grid;
         private int size;
         private int mines;
-        private Random random = new Random();
+        private Random random;
 
         public int Size => size;
 
-        // constructor that initializes the board with the specified size and number of mines
-        public Board(int size, int mines)
+        // sets up the board
+        public Board(int size, int mines, int seed)
         {
-            // validate size and mine count
-            if (size != 8 && size != 12 && size != 16)
-            {
-                throw new ArgumentException("Invalid board size. Allowed sizes are 8, 12, or 16.");
-            }
             this.size = size;
             this.mines = mines;
+            random = new Random(seed);
 
             grid = new Tile[size, size];
 
-            // initialize the board and place mines
             InitializeBoard();
             PlaceMines();
             CalculateAdjacentMines();
         }
 
-        //creates board and initializes each tile
+        // empty board
         private void InitializeBoard()
         {
-            for (int x = 0; x < size; x++)
-            {
-                for (int y = 0; y < size; y++)
-                {
-                    grid[x, y] = new Tile();
-                }
-            }
+            for (int r = 0; r < size; r++)
+                for (int c = 0; c < size; c++)
+                    grid[r, c] = new Tile();
         }
 
+        // place mines
         private void PlaceMines()
         {
-            int placedMines = 0;
+            int placed = 0;
 
-            //loop for mine placement
-
-            while (placedMines < mines)
+            while (placed < mines)
             {
-                int x = random.Next(size);
-                int y = random.Next(size);
+                int r = random.Next(size);
+                int c = random.Next(size);
 
-                if (!grid[x, y].IsMine)
+                if (!grid[r, c].IsMine)
                 {
-                    grid[x, y].IsMine = true;
-                    placedMines++;
+                    grid[r, c].IsMine = true;
+                    placed++;
                 }
             }
         }
 
-        // calculates the number of adjacent mines for each tiles on board
+        // numbers
         private void CalculateAdjacentMines()
         {
-            // loop through each tile and count adjacent mines
-            for (int x = 0; x < size; x++)
-            {
-                for (int y = 0; y < size; y++)
-                {
-                    if (grid[x, y].IsMine)
-                    {
-                        grid[x, y].AdjacentMines = CountAdjacentMines(x, y);
-                    }
-                }
-            }
-
-
+            for (int r = 0; r < size; r++)
+                for (int c = 0; c < size; c++)
+                    if (!grid[r, c].IsMine)
+                        grid[r, c].AdjacentMines = CountAdjacentMines(r, c);
         }
 
-        // counts the number of mines adjacent to a given tile
-        private int CountAdjacentMines(int row, int col)
+        // counts mines around tile
+        private int CountAdjacentMines(int r, int c)
         {
             int count = 0;
 
-            // loop through the 3x3 area around the tile
-            for (int x = row - 1; x <= row + 1; x++)
+            for (int i = r - 1; i <= r + 1; i++)
             {
-                for (int y = col - 1; y <= col + 1; y++)
+                for (int j = c - 1; j <= c + 1; j++)
                 {
-                    if (x == row && y == col)
-                        continue;
-                    if (IsInBounds(x, y) && grid[x, y].IsMine)
+                    if (i == r && j == c) continue;
+
+                    if (IsInBounds(i, j) && grid[i, j].IsMine)
                         count++;
                 }
             }
+
             return count;
         }
 
-       
-        private bool IsInBounds(int x, int y)
+        // bounds check
+        private bool IsInBounds(int r, int c)
         {
-            return x >= 0 && x < size && y >= 0 && y < size;
+            return r >= 0 && r < size && c >= 0 && c < size;
         }
 
-        // method to get the tile at a specific position
-        public Tile GetTile(int x, int y)
-        {
-            return grid[x, y];
-        }
-
-        // class for the tiles on reach board
-        public class Tile
-        {
-            public bool IsMine { get; set; }
-            public int AdjacentMines { get; set; }
-
-            public bool IsRevealed { get; set; }
-            public bool IsFlagged { get; set; }
-        }
-
-        // method to print the board to the console
-        public void PrintBoard()
-        {
-            Console.Write(" ");
-            for (int y = 0; y < size; y++)
-                Console.WriteLine(y + " ");
-            Console.WriteLine();
-
-            for (int x = 0; x < size; x++)
-            {
-                Console.Write(x + " ");
-                for (int y = 0; y < size; y++)
-                {
-                    if (grid[x, y].IsMine)
-                        Console.Write("# ");
-                }
-                Console.WriteLine();
-            }
-        }
-
+        // reveals tile
         public bool Reveal(int r, int c)
         {
-            // stops if out of bounds
-            if (!IsInBounds(r, c))
-                return false;
+            if (!IsInBounds(r, c)) return true;
 
             Tile tile = grid[r, c];
 
-            // already revealed or flagged
             if (tile.IsFlagged || tile.IsRevealed)
                 return true;
 
             tile.IsRevealed = true;
 
-            // game ends after hitting a mine
             if (tile.IsMine)
                 return false;
 
-            
+            // cascade
             if (tile.AdjacentMines == 0)
             {
-                for (int x = r - 1; x <= r + 1; x++)
-                {
-                    for (int y = c - 1; y <= c + 1; y++)
-                    {
-                        if (IsInBounds(x, y))
-                            Reveal(x, y);
-                    }
-                }
+                for (int i = r - 1; i <= r + 1; i++)
+                    for (int j = c - 1; j <= c + 1; j++)
+                        if (IsInBounds(i, j))
+                            Reveal(i, j);
             }
 
             return true;
         }
 
+        // flag
+        public void ToggleFlag(int r, int c)
+        {
+            if (!IsInBounds(r, c)) return;
 
+            Tile tile = grid[r, c];
+
+            if (!tile.IsRevealed)
+                tile.IsFlagged = !tile.IsFlagged;
+        }
+
+        // checks if user wins
+        public bool CheckWin()
+        {
+            for (int r = 0; r < size; r++)
+                for (int c = 0; c < size; c++)
+                    if (!grid[r, c].IsMine && !grid[r, c].IsRevealed)
+                        return false;
+
+            return true;
+        }
+
+        // prints board
+        public void PrintBoard()
+        {
+            Console.Write("  ");
+
+            for (int c = 0; c < size; c++)
+                Console.Write(c + " ");
+
+            Console.WriteLine();
+
+            for (int r = 0; r < size; r++)
+            {
+                Console.Write(r + " ");
+
+                for (int c = 0; c < size; c++)
+                {
+                    Tile t = grid[r, c];
+
+                    if (!t.IsRevealed)
+                        Console.Write(t.IsFlagged ? "f " : "# ");
+                    else if (t.IsMine)
+                        Console.Write("b ");
+                    else if (t.AdjacentMines > 0)
+                        Console.Write(t.AdjacentMines + " ");
+                    else
+                        Console.Write(". ");
+                }
+
+                Console.WriteLine();
+            }
+        }
+    }
+
+    public class Tile
+    {
+        public bool IsMine { get; set; }
+        public int AdjacentMines { get; set; }
+        public bool IsRevealed { get; set; }
+        public bool IsFlagged { get; set; }
     }
 }
-
-
-

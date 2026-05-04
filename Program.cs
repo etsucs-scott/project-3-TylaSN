@@ -1,22 +1,25 @@
 ﻿using System;
 using Minesweeper.Core;
 
-
-    class Program
+class Program
 {
-    // Main method to run the game
     static void Main(string[] args)
     {
         while (true)
         {
-            // Menu for selecting board size
-            Console.WriteLine("Menu:\n1) 8x8\n2) 12x12\n3) 16x16\nChoose a board size: ");
+            // menu
+            Console.WriteLine("Menu:");
+            Console.WriteLine("1) 8x8");
+            Console.WriteLine("2) 12x12");
+            Console.WriteLine("3) 16x16");
+            Console.Write("Choose a board size: ");
+
             string choice = Console.ReadLine();
 
-            int size = 0;
-            int mines = 0;
+            int size;
+            int mines;
 
-            // choices for board size and mines based on user input
+            // board settings
             if (choice == "1")
             {
                 size = 8;
@@ -34,52 +37,84 @@ using Minesweeper.Core;
             }
             else
             {
-                //Statement for invalid input
-                Console.WriteLine("Invalid choice. Please select a valid board size.");
+                Console.WriteLine("Invalid choice.\n");
                 continue;
             }
 
-            // creates the board
+            // seed (level number)
+            Console.Write("Enter level number (or Enter for random): ");
+            string input = Console.ReadLine();
 
-            Board board = new Board(size, mines);
-            
-            // Main game loop
+            int seed;
+
+            if (string.IsNullOrWhiteSpace(input))
+                seed = Environment.TickCount;
+            else if (!int.TryParse(input, out seed))
+            {
+                Console.WriteLine("Invalid level number.");
+                seed = Environment.TickCount;
+            }
+
+            Console.WriteLine($"Level: {seed}");
+
+            Board board = new Board(size, mines, seed);
+
+            int moves = 0;
+            DateTime startTime = DateTime.Now;
+
+            // game loop
             while (true)
             {
-                //prints board
                 board.PrintBoard();
 
-                // User input for contunueing the game/ quiting the game
-                Console.Write("Type r to reveal (example: r 2 3), or q ro quit: ");
-                string input = Console.ReadLine() ?? "";
-                if (input == "q")
+                Console.Write("Choice (r # #/ f # #):");
+                string command = Console.ReadLine() ?? "";
+
+                if (command == "q")
                     break;
 
-                string[] parts = input.Split(' ');
+                string[] parts = command.Split(' ');
 
-                if (parts.Length != 3 || parts[0] != "r")
+                if (parts.Length != 3)
                 {
-                    Console.WriteLine("Invalid input. ");
+                    Console.WriteLine("invalid input: (Format: r # #/ f # #) ");
                     continue;
                 }
 
-                int row = int.Parse(parts[1]);
-                int col = int.Parse(parts[2]);
-
-                bool safe = board.Reveal(row, col);
-
-                if (!safe)
+                if (!int.TryParse(parts[1], out int row) ||
+                    !int.TryParse(parts[2], out int col))
                 {
-                    Console.WriteLine("You hit a mine! Game over.");
-                    board.PrintBoard();
-                    break;
+                    Console.WriteLine("Bad coords");
+                    continue;
                 }
 
+                // reveal
+                if (parts[0] == "r")
+                {
+                    moves++;
+
+                    if (!board.Reveal(row, col))
+                    {
+                        Console.WriteLine("Boom! GAME OVER!!");
+                        board.PrintBoard();
+                        break;
+                    }
+
+                    if (board.CheckWin())
+                    {
+                        Console.WriteLine("You win");
+                        break;
+                    }
+                }
+                // flag
+                else if (parts[0] == "f")
+                {
+                    moves++;
+                    board.ToggleFlag(row, col);
+                }
             }
 
-            
-            break;
-
+            Console.WriteLine("Back to menu\n");
         }
     }
 }
